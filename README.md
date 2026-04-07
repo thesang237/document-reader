@@ -34,7 +34,7 @@ This project is ready for **GitHub Pages** (single-file HTML + Tailwind).
 
 Your app will be live at: **https://thesang237.github.io/document-reader**
 
-> **Note**: It may take 1-2 minutes for the site to become available after enabling Pages.
+> **Note**: After saving the Pages settings, it may take 1-2 minutes for the site to build and become available. A `.nojekyll` file has been added to ensure all files are served correctly.
 
 ## License
 Free to use and modify.
