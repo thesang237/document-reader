@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Reader</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js for reading PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        /* Custom range slider styling */
+        input[type=range] { accent-color: #3b82f6; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800 font-sans p-6">
+
+    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">AI Document Reader</h1>
+            <p class="text-gray-500 mb-6">Listen to your text or documents in English & Vietnamese.</p>
+
+            <!-- Settings -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Google Cloud TTS API Key</label>
+                    <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <p class="text-xs text-gray-400 mt-1">Requires Cloud Text-to-Speech API enabled.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Language & Voice</label>
+                    <select id="voiceSelect" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        <optgroup label="English (US)">
+                            <option value="en-US|en-US-Journey-F">Female - Journey (Ultra Realistic)</option>
+                            <option value="en-US|en-US-Journey-D">Male - Journey (Ultra Realistic)</option>
+                            <option value="en-US|en-US-Neural2-F">Female - Neural2</option>
+                            <option value="en-US|en-US-Neural2-J">Male - Neural2</option>
+                        </optgroup>
+                        <optgroup label="Vietnamese">
+                            <option value="vi-VN|vi-VN-Neural2-A">Female - Neural2 (Premium)</option>
+                            <option value="vi-VN|vi-VN-Neural2-D">Male - Neural2 (Premium)</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Paste Text Here</label>
+                <textarea id="textInput" rows="6" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y" placeholder="Paste your long text here..."></textarea>
+                <p class="text-xs text-gray-400 mt-1">Markdown formatting (*, #, etc.) is automatically cleaned before reading.</p>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Or Upload Document (.txt, .pdf)</label>
+                <input type="file" id="fileInput" accept=".txt,.pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+            </div>
+
+            <!-- Action Button -->
+            <button id="generateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex justify-center items-center">
+                <span id="btnText">Generate Audio & Listen</span>
+                <svg id="loadingSpinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </button>
+            <p id="errorText" class="text-red-500 text-sm mt-3 hidden"></p>
+        </div>
+
+        <!-- Custom Audio Player Control Bar -->
+        <div id="audioPlayerContainer" class="bg-gray-100 p-4 sm:p-6 border-t border-gray-200 hidden">
+            <audio id="audioElement" class="hidden"></audio>
+            
+            <div class="flex items-center justify-between mb-4">
+                <span id="currentTime" class="text-sm font-medium text-gray-600 w-10 text-right">0:00</span>
+                <input type="range" id="progressBar" value="0" step="0.1" class="w-full mx-4 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                <span id="durationTime" class="text-sm font-medium text-gray-600 w-10 text-left">0:00</span>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                
+                <!-- Speed Control -->
+                <div class="flex items-center w-1/4">
+                    <select id="speedControl" class="bg-white border rounded px-2 py-1 text-sm font-medium text-gray-700 outline-none cursor-pointer">
+                        <option value="0.5">0.5x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2x</option>
+                    </select>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="flex items-center justify-center space-x-4 flex-1">
+                    <!-- Back 15s -->
+                    <button id="btnBackward" class="p-2 text-gray-600 hover:text-blue-600 transition" title="Backward 15s">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path></svg>
+                        <span class="text-xs font-bold block mt-[-8px] text-center">-15s</span>
+                    </button>
+
+                    <!-- Play / Pause -->
+                    <button id="btnPlayPause" class="p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition transform hover:scale-105">
+                        <svg id="iconPlay" class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                        <svg id="iconPause" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    </button>
+
+                    <!-- Forward 15s -->
+                    <button id="btnForward" class="p-2 text-gray-600 hover:text-blue-600 transition" title="Forward 15s">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"></path></svg>
+                        <span class="text-xs font-bold block mt-[-8px] text-center">+15s</span>
+                    </button>
+                </div>
+                
+                <!-- Download Button -->
+                <div class="flex justify-end w-1/4">
+                    <a id="btnDownload" href="#" download="document_audio.mp3" class="flex flex-col items-center text-gray-600 hover:text-blue-600 transition" title="Download MP3">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span class="text-xs font-bold mt-1 text-center">Save MP3</span>
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // PDF.js Worker setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const textInput = document.getElementById('textInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const btnText = document.getElementById('btnText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const errorText = document.getElementById('errorText');
+        const audioElement = document.getElementById('audioElement');
+        const audioPlayerContainer = document.getElementById('audioPlayerContainer');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const iconPlay = document.getElementById('iconPlay');
+        const iconPause = document.getElementById('iconPause');
+        const btnBackward = document.getElementById('btnBackward');
+        const btnForward = document.getElementById('btnForward');
+        const btnDownload = document.getElementById('btnDownload');
+        const speedControl = document.getElementById('speedControl');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationTimeEl = document.getElementById('durationTime');
+        const voiceSelect = document.getElementById('voiceSelect');
+
+        // Extract text from Document Uploads
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.name.endsWith('.txt')) {
+                const text = await file.text();
+                textInput.value = text;
+            } else if (file.name.endsWith('.pdf')) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        fullText += content.items.map(item => item.str).join(' ') + '\n';
+                    }
+                    textInput.value = fullText;
+                } catch (err) {
+                    alert("Error reading PDF file.");
+                }
+            }
+        });
+
+        // Clean Markdown characters before reading
+        function cleanTextForTTS(rawText) {
+            let text = rawText;
+            
+            // 1. Transform markdown links: [Click Here](https://link.com) -> Click Here
+            text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+            
+            // 2. Remove common Markdown symbols: *, #, _, ~, `, >
+            text = text.replace(/[*#_~`>]/g, '');
+            
+            // 3. Remove multiple consecutive spaces left behind by deletions
+            text = text.replace(/ +/g, ' ');
+
+            return text.trim();
+        }
+
+        // Split long text into chunks of ~4000 characters to respect API limits
+        function chunkText(text, maxLength = 4000) {
+            const chunks =[];
+            let i = 0;
+            while (i < text.length) {
+                if (text.length - i <= maxLength) {
+                    chunks.push(text.slice(i));
+                    break;
+                }
+                let chunk = text.slice(i, i + maxLength);
+                let lastSpace = chunk.lastIndexOf(' ');
+                if (lastSpace === -1) lastSpace = maxLength;
+                chunks.push(text.slice(i, i + lastSpace));
+                i += lastSpace + 1;
+            }
+            return chunks;
+        }
+
+        // Convert base64 audio payload to raw bytes
+        function base64ToUint8Array(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        // Handle Audio Generation
+        generateBtn.addEventListener('click', async () => {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            let text = textInput.value.trim();
+
+            // Extract selected Language Code and Voice Name from the dropdown value
+            const selectedVal = voiceSelect.value;
+            const[languageCode, voiceName] = selectedVal.split('|');
+
+            errorText.classList.add('hidden');
+
+            if (!apiKey) {
+                errorText.innerText = "Please enter your Google Cloud API Key.";
+                errorText.classList.remove('hidden');
+                return;
+            }
+            if (!text) {
+                errorText.innerText = "Please paste some text or upload a document first.";
+                errorText.classList.remove('hidden');
+                return;
+            }
+
+            // Set Loading State
+            btnText.innerText = "Generating Audio...";
+            loadingSpinner.classList.remove('hidden');
+            generateBtn.disabled = true;
+
+            try {
+                // CLEAN MARKDOWN TEXT BEFORE SENDING TO API
+                text = cleanTextForTTS(text);
+
+                if (!text) {
+                     throw new Error("Text is empty after removing markdown characters.");
+                }
+
+                const chunks = chunkText(text);
+                const audioBuffers =[];
+
+                for (const chunk of chunks) {
+                    const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            input: { text: chunk },
+                            voice: { languageCode: languageCode, name: voiceName },
+                            audioConfig: { audioEncoding: 'MP3' }
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.error) throw new Error(data.error.message);
+                    audioBuffers.push(data.audioContent);
+                }
+
+                // Concatenate mp3 frames correctly
+                const byteArrays = audioBuffers.map(base64ToUint8Array);
+                const totalLength = byteArrays.reduce((acc, val) => acc + val.length, 0);
+                const combined = new Uint8Array(totalLength);
+                let offset = 0;
+                for (const arr of byteArrays) {
+                    combined.set(arr, offset);
+                    offset += arr.length;
+                }
+
+                // Create a playable and downloadable Blob URL
+                const blob = new Blob([combined], { type: 'audio/mp3' });
+                const audioUrl = URL.createObjectURL(blob);
+                
+                // Set audio source
+                audioElement.src = audioUrl;
+                
+                // Set Download Button target link
+                btnDownload.href = audioUrl;
+
+                // Show player
+                audioPlayerContainer.classList.remove('hidden');
+                
+                // Auto Play
+                audioElement.play();
+
+            } catch (err) {
+                errorText.innerText = "Error: " + err.message;
+                errorText.classList.remove('hidden');
+            } finally {
+                // Reset Loading State
+                btnText.innerText = "Generate Audio & Listen";
+                loadingSpinner.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
+        });
+
+        // ----- Custom Audio Player Controls -----
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        btnPlayPause.addEventListener('click', () => {
+            if (audioElement.paused) audioElement.play();
+            else audioElement.pause();
+        });
+
+        audioElement.addEventListener('play', () => {
+            iconPlay.classList.add('hidden');
+            iconPause.classList.remove('hidden');
+        });
+
+        audioElement.addEventListener('pause', () => {
+            iconPause.classList.add('hidden');
+            iconPlay.classList.remove('hidden');
+        });
+
+        // Forward and Backward 15 seconds
+        btnBackward.addEventListener('click', () => {
+            audioElement.currentTime = Math.max(0, audioElement.currentTime - 15);
+        });
+
+        btnForward.addEventListener('click', () => {
+            audioElement.currentTime = Math.min(audioElement.duration, audioElement.currentTime + 15);
+        });
+
+        // Playback Speed
+        speedControl.addEventListener('change', (e) => {
+            audioElement.playbackRate = parseFloat(e.target.value);
+        });
+
+        // Update Progress Bar
+        audioElement.addEventListener('timeupdate', () => {
+            if (audioElement.duration) {
+                progressBar.value = (audioElement.currentTime / audioElement.duration) * 100;
+                currentTimeEl.innerText = formatTime(audioElement.currentTime);
+                durationTimeEl.innerText = formatTime(audioElement.duration);
+            }
+        });
+
+        // Seek via Progress Bar
+        progressBar.addEventListener('input', (e) => {
+            const seekTime = (e.target.value / 100) * audioElement.duration;
+            audioElement.currentTime = seekTime;
+        });
+
+        // Ensure duration loads correctly
+        audioElement.addEventListener('loadedmetadata', () => {
+            durationTimeEl.innerText = formatTime(audioElement.duration);
+            audioElement.playbackRate = parseFloat(speedControl.value); // enforce chosen speed on new tracks
+        });
+    </script>
+</body>
+</html>
