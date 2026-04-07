@@ -228,9 +228,26 @@ const EchoArchive: React.FC = () => {
       // Switch main panel to playlist mode
       setAudioChunks(generatedChunks);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Generation error:', error);
-      alert('Error generating audio chunks. Please check your API key and try again.');
+      
+      let userMessage = 'Error generating audio chunks.\n\n';
+      
+      if (!apiKey) {
+        userMessage += 'No API key provided. Please add one in Settings.';
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        userMessage += 'Network error. Check your internet connection.';
+      } else if (error.message?.includes('billing') || error.message?.toLowerCase().includes('billing')) {
+        userMessage += 'Billing must be enabled on your Google Cloud project for Text-to-Speech.';
+      } else if (error.message?.includes('API key') || error.message?.includes('key')) {
+        userMessage += 'Your API key is invalid, expired, or missing Text-to-Speech permissions.';
+      } else if (error.status === 403 || error.message?.includes('403')) {
+        userMessage += 'Permission denied. Make sure the Text-to-Speech API is enabled and billing is active.';
+      } else {
+        userMessage += error.message || 'Unknown error. Please check browser console (F12) for details.';
+      }
+      
+      alert(userMessage);
     } finally {
       setIsGenerating(false);
     }
