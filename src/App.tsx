@@ -281,12 +281,21 @@ const EchoArchive: React.FC = () => {
     if (audioChunks.length === 0) return;
 
     if (isPlaying) {
-      stopAllAudio();
+      // Pause current audio
+      if (currentAudio) currentAudio.pause();
+      setIsPlaying(false);
       return;
     }
 
-    // Start from first chunk (auto-advance will handle the rest)
-    playChunk(audioChunks[0]);
+    if (currentAudio && currentTime > 0) {
+      // Resume paused audio
+      currentAudio.play().then(() => {
+        setIsPlaying(true);
+      }).catch(console.error);
+    } else {
+      // Start from first chunk (auto-advance will handle the rest)
+      playChunk(audioChunks[0]);
+    }
   };
 
   // Canvas Waveform Animation
@@ -684,29 +693,28 @@ const EchoArchive: React.FC = () => {
               <div className="absolute bottom-6 left-8 text-[10px] font-mono text-[#5c4634] tracking-widest">OSCILLOSCOPE • LIVE</div>
             </div>
 
-            {/* Progress Bar */}
-            {nowPlayingChunkId !== null && (
-              <div className="mb-6">
-                <div className="flex justify-between text-[10px] font-mono text-[#8c6f47] mb-1">
-                  <span>{Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}</span>
-                  <span>{Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 0}
-                  value={currentTime}
-                  onChange={(e) => {
-                    const newTime = parseFloat(e.target.value);
-                    if (currentAudio) {
-                      currentAudio.currentTime = newTime;
-                      setCurrentTime(newTime);
-                    }
-                  }}
-                  className="w-full accent-[#d4af37] cursor-pointer"
-                />
+            {/* Progress Bar - Always visible */}
+            <div className="mb-6">
+              <div className="flex justify-between text-[10px] font-mono text-[#8c6f47] mb-1">
+                <span>{Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}</span>
+                <span>{Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}</span>
               </div>
-            )}
+              <input
+                type="range"
+                min="0"
+                max={duration || 100}
+                value={currentTime}
+                onChange={(e) => {
+                  const newTime = parseFloat(e.target.value);
+                  if (currentAudio) {
+                    currentAudio.currentTime = newTime;
+                    setCurrentTime(newTime);
+                  }
+                }}
+                disabled={!currentAudio}
+                className="w-full accent-[#d4af37] cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+              />
+            </div>
 
             {/* Controls */}
             <div className="flex items-center justify-between text-xs">
