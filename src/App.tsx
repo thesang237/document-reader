@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, Play, Pause, Square, Settings, Key, Mic, Clock, BookOpen, Volume2, Edit3 } from 'lucide-react';
+import { Upload, Play, Pause, Square, Settings, Key, Clock, BookOpen } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Types
@@ -17,14 +17,6 @@ interface AudioChunk {
   duration?: number;
 }
 
-interface Voice {
-  id: string;
-  name: string;
-  description: string;
-  accent: string;
-  icon: React.ReactNode;
-  gender: 'male' | 'female';
-}
 
 const EchoArchive: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem('googleTtsApiKey') || '');
@@ -43,45 +35,52 @@ const EchoArchive: React.FC = () => {
   const [audioChunks, setAudioChunks] = useState<AudioChunk[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [nowPlayingChunkId, setNowPlayingChunkId] = useState<number | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<'vi' | 'en'>('vi');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const voices: Voice[] = [
-    { 
-      id: 'en-US-Wavenet-D', 
-      name: 'Professor Alden', 
-      description: 'Deep, scholarly narration', 
-      accent: 'American', 
-      icon: <BookOpen className="w-5 h-5" />,
-      gender: 'male' 
-    },
-    { 
-      id: 'en-GB-Neural2-A', 
-      name: 'Lady Elowen', 
-      description: 'Elegant British tone', 
-      accent: 'British', 
-      icon: <Volume2 className="w-5 h-5" />,
-      gender: 'female' 
-    },
-    { 
-      id: 'en-US-Studio-M', 
-      name: 'The Archivist', 
-      description: 'Precise & measured', 
-      accent: 'American', 
-      icon: <Edit3 className="w-5 h-5" />,
-      gender: 'male' 
-    },
-    { 
-      id: 'en-AU-Neural2-B', 
-      name: 'Ms. Hawthorne', 
-      description: 'Warm storyteller', 
-      accent: 'Australian', 
-      icon: <Mic className="w-5 h-5" />,
-      gender: 'female' 
-    },
-  ];
+  const voiceLibrary = {
+    vi: [
+      { 
+        id: 'vi-VN-Neural2-D', 
+        name: 'Nam', 
+        description: 'Warm & natural Vietnamese male voice', 
+        accent: 'Vietnam', 
+        icon: '♂',
+        gender: 'male' as const 
+      },
+      { 
+        id: 'vi-VN-Neural2-A', 
+        name: 'Nữ', 
+        description: 'Clear & elegant Vietnamese female voice', 
+        accent: 'Vietnam', 
+        icon: '♀',
+        gender: 'female' as const 
+      },
+    ],
+    en: [
+      { 
+        id: 'en-US-Journey-D', 
+        name: 'Journey Male', 
+        description: 'Ultra-realistic American male voice', 
+        accent: 'US', 
+        icon: '♂',
+        gender: 'male' as const 
+      },
+      { 
+        id: 'en-US-Journey-F', 
+        name: 'Journey Female', 
+        description: 'Ultra-realistic American female voice', 
+        accent: 'US', 
+        icon: '♀',
+        gender: 'female' as const 
+      },
+    ]
+  };
+
+  const currentVoices = voiceLibrary[selectedLanguage];
 
   // Split text into sentences
   const splitIntoSentences = (text: string): Sentence[] => {
@@ -362,8 +361,6 @@ const EchoArchive: React.FC = () => {
     setShowSettings(false);
   };
 
-  const selectedVoice = voices.find(v => v.id === selectedVoiceId) || voices[0];
-
   // Play a specific audio chunk
   const playChunk = (chunk: AudioChunk) => {
     if (nowPlayingChunkId === chunk.id) {
@@ -477,6 +474,44 @@ const EchoArchive: React.FC = () => {
                 onChange={handleFileSelect}
                 className="hidden"
               />
+            </div>
+
+            {/* Voice Library - Redesigned */}
+            <div className="mt-2 pt-6 border-t border-[#3a2720]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="uppercase tracking-widest text-xs text-[#8c6f47]">VOICE LIBRARY</div>
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => {
+                    const lang = e.target.value as 'vi' | 'en';
+                    setSelectedLanguage(lang);
+                    // Auto select first voice of new language
+                    setSelectedVoiceId(voiceLibrary[lang][0].id);
+                  }}
+                  className="bg-[#1a0f08] border border-[#5c4634] text-xs px-3 py-1.5 rounded-xl text-[#d4af37] outline-none"
+                >
+                  <option value="vi">🇻🇳 Vietnamese (default)</option>
+                  <option value="en">🇺🇸 English</option>
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {currentVoices.map((voice) => (
+                  <div
+                    key={voice.id}
+                    onClick={() => setSelectedVoiceId(voice.id)}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all hover:-translate-y-0.5 ${
+                      selectedVoiceId === voice.id 
+                        ? 'border-[#d4af37] bg-[#2c2118] shadow-[0_0_20px_-4px] shadow-[#d4af37]/40' 
+                        : 'border-[#3a2720] hover:border-[#6b5542]'
+                    }`}
+                  >
+                    <div className="text-3xl mb-3 opacity-80">{voice.icon}</div>
+                    <div className="font-medium text-white text-sm">{voice.name}</div>
+                    <div className="text-[10px] text-[#a38b6b] mt-0.5">{voice.description}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -599,10 +634,6 @@ const EchoArchive: React.FC = () => {
                   <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-[#8c6f47]'}`}></div>
                   {isPlaying ? 'NARRATING' : 'STANDBY'}
                 </div>
-                <div className="text-xs text-[#8c6f47] flex items-center gap-1">
-                  <span>VOICE:</span> 
-                  <span className="gold-text">{selectedVoice.name}</span>
-                </div>
               </div>
               
               <div className="flex items-center gap-2">
@@ -661,26 +692,6 @@ const EchoArchive: React.FC = () => {
                   />
                 </div>
 
-                {/* Voice Selector Cards - Mini */}
-                <div>
-                  <div className="text-[#8c6f47] text-[10px] mb-2">NARRATOR</div>
-                  <div className="flex gap-2">
-                    {voices.map((voice) => (
-                      <button
-                        key={voice.id}
-                        onClick={() => setSelectedVoiceId(voice.id)}
-                        className={`px-4 py-2 text-xs rounded-2xl border transition-all flex items-center gap-2 ${
-                          selectedVoiceId === voice.id 
-                            ? 'border-[#d4af37] bg-[#2c2118] shadow-md' 
-                            : 'border-transparent hover:border-[#5c4634] bg-[#1a0f08]'
-                        }`}
-                      >
-                        {voice.icon}
-                        <span className={selectedVoiceId === voice.id ? 'gold-text' : ''}>{voice.name.split(' ')[0]}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               <button 
@@ -693,12 +704,46 @@ const EchoArchive: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar: Voice Library */}
+        {/* Right Sidebar: Voice Library (Redesigned) */}
         <div className="w-80 border-l border-[#5c4634] bg-[#1a0f08]/90 flex flex-col academia-container m-3 ml-0 rounded-3xl p-6 overflow-hidden">
-          <div className="uppercase text-xs tracking-widest mb-6 text-[#8c6f47]">THE NARRATORS</div>
+          <div className="uppercase text-xs tracking-widest mb-6 text-[#8c6f47]">VOICE LIBRARY</div>
           
-          <div className="space-y-4 overflow-auto custom-scroll">
-            {voices.map((voice, index) => (
+          {/* Language Selector */}
+          <div className="mb-6">
+            <div className="text-xs text-[#8c6f47] mb-2">LANGUAGE</div>
+            <div className="flex rounded-2xl border border-[#3a2720] p-1">
+              <button
+                onClick={() => {
+                  setSelectedLanguage('vi');
+                  setSelectedVoiceId('vi-VN-Neural2-D');
+                }}
+                className={`flex-1 py-2.5 text-sm rounded-[14px] transition-all ${
+                  selectedLanguage === 'vi' 
+                    ? 'bg-[#2c2118] text-[#d4af37] shadow-inner' 
+                    : 'hover:bg-[#2c2118]/50'
+                }`}
+              >
+                🇻🇳 Vietnamese
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedLanguage('en');
+                  setSelectedVoiceId('en-US-Journey-D');
+                }}
+                className={`flex-1 py-2.5 text-sm rounded-[14px] transition-all ${
+                  selectedLanguage === 'en' 
+                    ? 'bg-[#2c2118] text-[#d4af37] shadow-inner' 
+                    : 'hover:bg-[#2c2118]/50'
+                }`}
+              >
+                🇬🇧 English
+              </button>
+            </div>
+          </div>
+
+          {/* Voices for selected language */}
+          <div className="space-y-3">
+            {currentVoices.map((voice) => (
               <div 
                 key={voice.id}
                 onClick={() => setSelectedVoiceId(voice.id)}
@@ -709,27 +754,22 @@ const EchoArchive: React.FC = () => {
                 }`}
               >
                 <div className="flex gap-4">
-                  <div className="w-11 h-11 flex-shrink-0 rounded-xl bg-gradient-to-br from-[#3a2720] to-[#1a0f08] flex items-center justify-center text-[#d4af37] group-hover:scale-110 transition-transform">
+                  <div className="w-11 h-11 flex-shrink-0 rounded-2xl bg-gradient-to-br from-[#3a2720] to-[#1a0f08] flex items-center justify-center text-4xl text-[#d4af37] group-hover:scale-110 transition-transform">
                     {voice.icon}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <div className="font-semibold text-lg gold-text leading-none">{voice.name}</div>
-                      <div className="text-[10px] px-2.5 py-0.5 bg-[#120b06] rounded-full text-[#a38b6b]">{voice.accent}</div>
-                    </div>
-                    <div className="text-xs text-[#a38b6b] mt-1.5 line-clamp-2">{voice.description}</div>
-                    <div className="mt-4 text-[10px] flex items-center gap-1 text-[#6b5542]">
-                      {voice.gender === 'female' ? '♀' : '♂'} NARRATOR • {index + 1}
-                    </div>
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className="font-semibold text-lg gold-text">{voice.name}</div>
+                    <div className="text-xs text-[#a38b6b] mt-1 leading-tight">{voice.description}</div>
+                    <div className="mt-4 text-[10px] text-[#6b5542] font-mono">NEURAL • HIGH QUALITY</div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          
+
           <div className="mt-auto pt-8 text-[10px] text-center text-[#5c4634] border-t border-[#3a2720]">
             Powered by Google Cloud Text-to-Speech<br />
-            All voices synthesized with period-accurate timbre
+            Vietnamese is default • All voices are neural quality
           </div>
         </div>
       </div>
