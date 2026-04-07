@@ -361,6 +361,13 @@ const EchoArchive: React.FC = () => {
     };
   }, [drawWaveform]);
 
+  // Update playback speed of current audio when slider changes
+  useEffect(() => {
+    if (currentAudio && isPlaying) {
+      currentAudio.playbackRate = speed;
+    }
+  }, [speed, currentAudio, isPlaying]);
+
   // Handle file drop
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -736,7 +743,6 @@ const EchoArchive: React.FC = () => {
                     onChange={(e) => {
                       const newSpeed = parseFloat(e.target.value);
                       setSpeed(newSpeed);
-                      if (sentences.length > 0) calculateStats(sentences);
                     }}
                     className="accent-[#d4af37] w-36"
                   />
