@@ -9,6 +9,14 @@ interface Sentence {
   wordCount: number;
 }
 
+interface AudioChunk {
+  id: number;
+  text: string;
+  preview: string;
+  audioUrl: string;
+  duration?: number;
+}
+
 interface Voice {
   id: string;
   name: string;
@@ -32,6 +40,9 @@ const EchoArchive: React.FC = () => {
   const [wordCount, setWordCount] = useState(0);
   const [estTime, setEstTime] = useState('');
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [audioChunks, setAudioChunks] = useState<AudioChunk[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [nowPlayingChunkId, setNowPlayingChunkId] = useState<number | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -75,12 +86,34 @@ const EchoArchive: React.FC = () => {
   // Split text into sentences
   const splitIntoSentences = (text: string): Sentence[] => {
     const sentenceRegex = /[^.!?]+[.!?]+/g;
-    const matches = text.match(sentenceRegex) || [];
+    const matches = text.match(sentenceRegex) || [text];
     return matches.map((sentence, index) => ({
       id: index,
       text: sentence.trim(),
       wordCount: sentence.trim().split(/\s+/).length,
     }));
+  };
+
+  // Intelligent chunking for Google TTS (max ~5000 chars per request)
+  const chunkTextForTTS = (text: string, maxChars: number = 4500): string[] => {
+    const sentences = splitIntoSentences(text).map(s => s.text);
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      if ((currentChunk + sentence).length > maxChars && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      } else {
+        currentChunk += (currentChunk ? ' ' : '') + sentence;
+      }
+    }
+
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks;
   };
 
   // Calculate stats
@@ -137,97 +170,103 @@ const EchoArchive: React.FC = () => {
     }
   };
 
-  // Google TTS API call
-  const speakSentence = async (sentence: Sentence): Promise<void> => {
-    if (!apiKey) {
-      // Fallback to Web Speech API
-      return new Promise((resolve) => {
-        const utterance = new SpeechSynthesisUtterance(sentence.text);
-        utterance.rate = speed;
-        const selectedVoice = voices.find(v => v.id === selectedVoiceId);
-        if (selectedVoice) {
-          // Web Speech doesn't map directly, but we can try
-        }
-        utterance.onend = () => resolve();
-        window.speechSynthesis.speak(utterance);
-      });
+  // Generate all audio chunks sequentially using Google TTS
+  const generateFullAudio = async () => {
+    if (!documentText.trim() || !apiKey) {
+      alert('Please provide both text and a valid Google TTS API key.');
+      return;
     }
 
+    setIsGenerating(true);
+    setAudioChunks([]);
+
     try {
-      const response = await fetch(
-        `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            input: { text: sentence.text },
-            voice: { 
-              languageCode: selectedVoiceId.startsWith('en-GB') ? 'en-GB' : 'en-US',
-              name: selectedVoiceId 
-            },
-            audioConfig: { 
-              audioEncoding: 'MP3',
-              speakingRate: speed 
-            },
-          }),
-        }
-      );
+      const chunks = chunkTextForTTS(documentText);
+      const generatedChunks: AudioChunk[] = [];
 
-      if (!response.ok) throw new Error('TTS API error');
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkText = chunks[i];
+        const preview = chunkText.length > 60 
+          ? chunkText.substring(0, 57) + '...' 
+          : chunkText;
 
-      const data = await response.json();
-      const audioContent = data.audioContent;
-      const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
+        const response = await fetch(
+          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: { text: chunkText },
+              voice: { 
+                languageCode: selectedVoiceId.startsWith('en-GB') ? 'en-GB' : 'en-US',
+                name: selectedVoiceId 
+              },
+              audioConfig: { 
+                audioEncoding: 'MP3',
+                speakingRate: speed 
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) throw new Error(`Failed to generate chunk ${i + 1}`);
+
+        const data = await response.json();
+        const audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
+
+        generatedChunks.push({
+          id: i,
+          text: chunkText,
+          preview,
+          audioUrl,
+        });
+
+        // Update UI progressively
+        setAudioChunks([...generatedChunks]);
+      }
+
+      // Switch main panel to playlist mode
+      setAudioChunks(generatedChunks);
       
-      return new Promise((resolve) => {
-        audio.onended = () => resolve();
-        audio.play().catch(console.error);
-        setCurrentAudio(audio);
-      });
     } catch (error) {
-      console.error('TTS Error:', error);
-      // Fallback
-      const utterance = new SpeechSynthesisUtterance(sentence.text);
-      utterance.rate = speed;
-      window.speechSynthesis.speak(utterance);
-      return new Promise((resolve) => {
-        utterance.onend = () => resolve();
-      });
+      console.error('Generation error:', error);
+      alert('Error generating audio chunks. Please check your API key and try again.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  // Play / Pause logic
+  // Play full playlist sequentially
   const togglePlayback = async () => {
-    if (sentences.length === 0) return;
+    if (audioChunks.length === 0) return;
 
     if (isPlaying) {
-      if (currentAudio) {
-        currentAudio.pause();
-        setCurrentAudio(null);
-      }
-      window.speechSynthesis.cancel();
+      if (currentAudio) currentAudio.pause();
       setIsPlaying(false);
+      setNowPlayingChunkId(null);
       return;
     }
 
     setIsPlaying(true);
-    let index = currentSentenceIndex >= 0 ? currentSentenceIndex : 0;
-    setCurrentSentenceIndex(index);
-
-    for (let i = index; i < sentences.length; i++) {
+    
+    for (let i = 0; i < audioChunks.length; i++) {
       if (!isPlaying) break;
       
-      setCurrentSentenceIndex(i);
+      const chunk = audioChunks[i];
+      setNowPlayingChunkId(chunk.id);
       
-      const sentence = sentences[i];
-      await speakSentence(sentence);
+      const audio = new Audio(chunk.audioUrl);
+      audio.playbackRate = speed;
       
-      // Small pause between sentences
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.play().catch(() => resolve());
+        setCurrentAudio(audio);
+      });
     }
-
+    
     setIsPlaying(false);
-    setCurrentSentenceIndex(-1);
+    setNowPlayingChunkId(null);
     setCurrentAudio(null);
   };
 
@@ -308,6 +347,32 @@ const EchoArchive: React.FC = () => {
 
   const selectedVoice = voices.find(v => v.id === selectedVoiceId) || voices[0];
 
+  // Play a specific audio chunk
+  const playChunk = (chunk: AudioChunk) => {
+    if (nowPlayingChunkId === chunk.id) {
+      // Pause
+      if (currentAudio) currentAudio.pause();
+      setNowPlayingChunkId(null);
+      setIsPlaying(false);
+      return;
+    }
+
+    const audio = new Audio(chunk.audioUrl);
+    audio.playbackRate = speed;
+    
+    audio.onended = () => {
+      setNowPlayingChunkId(null);
+      setIsPlaying(false);
+      setCurrentAudio(null);
+    };
+
+    audio.play().then(() => {
+      setNowPlayingChunkId(chunk.id);
+      setIsPlaying(true);
+      setCurrentAudio(audio);
+    }).catch(console.error);
+  };
+
   return (
     <div className="min-h-screen bg-[#120b06] text-[#d4c3a3] font-serif overflow-hidden relative">
       {/* Ornate Header */}
@@ -361,27 +426,19 @@ const EchoArchive: React.FC = () => {
             {/* Paste Text Field */}
             <div className="flex-1 flex flex-col">
               <div className="flex justify-between items-center mb-2">
-                <div className="uppercase tracking-widest text-xs text-[#8c6f47]">PASTE TEXT</div>
+                <div className="uppercase tracking-widest text-xs text-[#8c6f47]">MANUSCRIPT TEXT</div>
                 <button
-                  onClick={() => {
-                    const text = documentText || '';
-                    if (text) {
-                      setDocumentText(text);
-                      const newSentences = splitIntoSentences(text);
-                      setSentences(newSentences);
-                      calculateStats(newSentences);
-                      setDocumentTitle('Pasted Text');
-                    }
-                  }}
-                  className="text-xs px-4 py-1 bg-[#2c2118] hover:bg-[#3a2720] text-[#d4af37] rounded-xl transition-colors"
+                  onClick={generateFullAudio}
+                  disabled={isGenerating || !documentText.trim() || !apiKey}
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#d4af37] to-[#b38b4d] disabled:from-[#3a2720] disabled:to-[#2c2118] text-[#1a0f08] disabled:text-[#6b5542] font-medium rounded-2xl text-sm transition-all active:scale-[0.97]"
                 >
-                  PROCESS TEXT
+                  {isGenerating ? 'GENERATING CHAPTERS...' : 'GENERATE AUDIO CHAPTERS'}
                 </button>
               </div>
               <textarea
                 value={documentText}
                 onChange={(e) => setDocumentText(e.target.value)}
-                placeholder="Paste your text here... The archive will split it into sentences automatically."
+                placeholder="Paste or type your manuscript here. Click 'GENERATE AUDIO CHAPTERS' to create separate MP3 files (respects Google TTS limits)."
                 className="flex-1 bg-[#120b06] border border-[#5c4634] focus:border-[#d4af37] rounded-2xl p-5 text-sm resize-none outline-none font-serif leading-relaxed placeholder:text-[#6b5542]"
               />
             </div>
@@ -438,18 +495,64 @@ const EchoArchive: React.FC = () => {
           )}
         </div>
 
-        {/* Main Reader Area */}
+        {/* Main Reader Area - Text or Playlist */}
         <div className="flex-1 flex flex-col p-8 relative">
           <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-hidden">
-            {!documentText ? (
+            {audioChunks.length > 0 ? (
+              /* Playlist View */
+              <div className="flex-1 flex flex-col">
+                <div className="uppercase tracking-widest text-xs mb-6 text-[#8c6f47] flex items-center gap-3">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  AUDIO CHAPTERS • {audioChunks.length} PARTS
+                </div>
+                
+                <div className="flex-1 overflow-auto space-y-3 pr-4 custom-scroll">
+                  {audioChunks.map((chunk, index) => (
+                    <div
+                      key={chunk.id}
+                      onClick={() => playChunk(chunk)}
+                      className={`group flex items-center gap-5 p-5 rounded-2xl border cursor-pointer transition-all hover:bg-[#2c2118] ${
+                        nowPlayingChunkId === chunk.id 
+                          ? 'border-[#d4af37] bg-[#2c2118]' 
+                          : 'border-[#3a2720] hover:border-[#6b5542]'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3a2720] to-[#1a0f08] flex items-center justify-center text-[#d4af37] flex-shrink-0">
+                        {nowPlayingChunkId === chunk.id ? '♪' : `${index + 1}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-[#d4c3a3] line-clamp-2 group-hover:text-white transition-colors">
+                          {chunk.preview}
+                        </div>
+                        <div className="text-[10px] text-[#6b5542] mt-2 font-mono">
+                          CHAPTER {index + 1} • {Math.round(chunk.text.length / 6)}s est.
+                        </div>
+                      </div>
+                      <button className="w-9 h-9 rounded-xl bg-[#1a0f08] flex items-center justify-center text-[#d4af37] opacity-0 group-hover:opacity-100 transition-all">
+                        ▶
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-6 pt-6 border-t border-[#3a2720] text-xs text-[#8c6f47] flex justify-between">
+                  <div>Click any chapter to play • All files saved in browser memory</div>
+                  <button 
+                    onClick={() => setAudioChunks([])}
+                    className="underline hover:text-white transition-colors"
+                  >
+                    Clear Playlist
+                  </button>
+                </div>
+              </div>
+            ) : !documentText ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center">
                 <div className="w-24 h-24 mx-auto mb-8 opacity-40">
                   <BookOpen className="w-full h-full text-[#d4af37]" />
                 </div>
                 <h3 className="text-5xl gold-text mb-6 tracking-tight">The Archive Awaits</h3>
                 <p className="max-w-md text-[#a38b6b] text-lg leading-relaxed">
-                  Upload a manuscript to begin your auditory journey through the written word. 
-                  Sentences will illuminate as the voice narrates with scholarly precision.
+                  Paste text or upload a document on the left. Then click "GENERATE AUDIO CHAPTERS" to create separate MP3 files.
                 </p>
                 <div className="mt-12 text-[10px] tracking-[2px] text-[#5c4634]">EST. 1892 • OXFORD READING SOCIETY</div>
               </div>
