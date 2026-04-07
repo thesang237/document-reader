@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, Play, Pause, Square, Settings, Key, BookOpen } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
+// PDF.js will be dynamically imported when needed
 
 // Types
 interface Sentence {
@@ -145,7 +145,10 @@ const EchoArchive: React.FC = () => {
     
     try {
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        // Use pdfjs to extract text
+        // Dynamically import PDF.js only when needed (fixes large chunk warning)
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
+        
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let fullText = '';
