@@ -1,8 +1,9 @@
 {
-  "name": "google-read-text",
+  "name": "document-reader",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://thesang237.github.io/document-reader",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
