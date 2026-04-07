@@ -20,30 +20,21 @@ A beautiful single-file web app that converts text and documents (TXT, PDF) to h
 
 ## Deployment
 
-This project is ready for **GitHub Pages**.
+This project is ready for **GitHub Pages** (single-file HTML + Tailwind).
 
-### Deploy to GitHub Pages (2 minutes)
+### Enable GitHub Pages
 
-1. Go to [github.com/new](https://github.com/new)
-   - Repository name: `ai-document-reader` (or any name you like)
-   - **Public** (required for free GitHub Pages)
-   - Do **not** initialize with README
+1. Go to your repository: https://github.com/thesang237/document-reader
+2. Click **Settings** → **Pages** (left sidebar)
+3. Under "Build and deployment":
+   - Choose **Deploy from a branch**
+   - Select **main** branch
+   - Select **/(root)** folder
+   - Click **Save**
 
-2. Run these commands:
+Your app will be live at: **https://thesang237.github.io/document-reader**
 
-```bash
-git branch -M main
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/ai-document-reader.git
-git push -u origin main
-```
-
-3. Go to your new repo → **Settings** → **Pages** (left sidebar)
-   - Under "Build and deployment", choose **Deploy from a branch**
-   - Select **main** branch → **/(root)** → **Save**
-
-Your live app will be at: `https://YOUR_GITHUB_USERNAME.github.io/ai-document-reader`
-
-(Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username)
+> **Note**: It may take 1-2 minutes for the site to become available after enabling Pages.
 
 ## License
 Free to use and modify.
