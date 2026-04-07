@@ -223,7 +223,11 @@ const EchoArchive: React.FC = () => {
           }
         );
 
-        if (!response.ok) throw new Error(`Failed to generate chunk ${i + 1}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Google TTS Error:', errorData);
+          throw new Error(`Failed to generate chunk ${i + 1}: ${errorData.error?.message || response.status}`);
+        }
 
         const data = await response.json();
         const audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
@@ -250,16 +254,18 @@ const EchoArchive: React.FC = () => {
       if (!apiKey) {
         userMessage += 'No API key provided. Please add one in Settings.';
       } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-        userMessage += 'Network error. Check your internet connection.';
+        userMessage += 'Network error. Check your internet connection and try again.';
       } else if (error.message?.includes('billing') || error.message?.toLowerCase().includes('billing')) {
-        userMessage += 'Billing must be enabled on your Google Cloud project for Text-to-Speech.';
+        userMessage += 'Billing must be enabled on your Google Cloud project.\nGo to console.cloud.google.com/billing';
       } else if (error.message?.includes('API key') || error.message?.includes('key')) {
-        userMessage += 'Your API key is invalid, expired, or missing Text-to-Speech permissions.';
-      } else if (error.status === 403 || error.message?.includes('403')) {
-        userMessage += 'Permission denied. Make sure the Text-to-Speech API is enabled and billing is active.';
+        userMessage += 'Your API key is invalid or missing permissions.\n\nCreate a new key with Text-to-Speech API enabled.';
+      } else if (error.message?.includes('Permission') || error.message?.includes('403')) {
+        userMessage += 'Permission denied.\n\n1. Enable Text-to-Speech API\n2. Enable billing on the project';
       } else {
-        userMessage += error.message || 'Unknown error. Please check browser console (F12) for details.';
+        userMessage += error.message || 'Unknown error occurred.';
       }
+      
+      userMessage += '\n\nCheck the browser console (F12) for full technical details.';
       
       alert(userMessage);
     } finally {
