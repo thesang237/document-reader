@@ -450,14 +450,14 @@ const EchoArchive: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#120b06] text-[#d4c3a3] font-serif overflow-hidden relative">
       {/* Ornate Header */}
-      <header className="academia-container border-b border-[#5c4634] py-4 px-8 flex items-center justify-between relative z-20">
+      <header className="academia-container border-b border-[#5c4634] py-2 px-8 flex items-center justify-between relative z-20">
         <div className="flex items-center gap-4">
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#d4af37] to-[#8c6f47] flex items-center justify-center shadow-inner">
             <BookOpen className="w-4 h-4 text-[#1a0f08]" />
           </div>
           <div>
-            <h1 className="text-4xl font-bold tracking-tighter gold-text">ECHO ARCHIVE</h1>
-            <p className="text-xs tracking-[3px] text-[#8c6f47] -mt-1">V O X   E X   L I T T E R I S</p>
+            <h1 className="text-2xl font-bold tracking-tighter gold-text">ECHO ARCHIVE</h1>
+            <p className="text-xs tracking-[2px] text-[#8c6f47] -mt-1">V O X   E X   L I T T E R I S</p>
           </div>
         </div>
         
@@ -495,7 +495,7 @@ const EchoArchive: React.FC = () => {
                 value={documentText}
                 onChange={(e) => setDocumentText(e.target.value)}
                 placeholder="Paste or type your text here..."
-                className="flex-1 bg-[#120b06] border border-[#5c4634] focus:border-[#d4af37] rounded-2xl p-6 text-sm resize-none outline-none font-serif leading-relaxed placeholder:text-[#6b5542]"
+                className="h-80 min-h-[320px] bg-[#120b06] border border-[#5c4634] focus:border-[#d4af37] rounded-2xl p-6 text-sm resize-none outline-none font-serif leading-relaxed placeholder:text-[#6b5542] overflow-auto"
               />
             </div>
 
@@ -564,7 +564,7 @@ const EchoArchive: React.FC = () => {
         </div>
 
         {/* Main Reader Area - Text or Playlist */}
-        <div className="flex-1 flex flex-col p-8 relative">
+        <div className="flex-1 flex flex-col p-3 relative">
           <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-hidden">
             {isGenerating ? (
               /* Loading State During Generation */
@@ -653,7 +653,7 @@ const EchoArchive: React.FC = () => {
           </div>
 
           {/* Player Console */}
-          <div className="academia-container mt-6 rounded-3xl p-6 border border-[#5c4634]">
+          <div className="academia-container mt-3 rounded-3xl p-6 border border-[#5c4634]">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="px-4 py-1 bg-[#2c2118] text-xs rounded-3xl border border-[#d4af37]/20 flex items-center gap-2">
