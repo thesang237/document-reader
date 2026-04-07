@@ -748,13 +748,6 @@ const EchoArchive: React.FC = () => {
                 </div>
 
               </div>
-
-              <button 
-                onClick={() => setShowSettings(true)}
-                className="flex items-center gap-2 text-xs px-6 py-3 border border-[#5c4634] hover:bg-[#2c2118] rounded-2xl transition-colors"
-              >
-                <Key className="w-4 h-4" /> MANAGE API KEY
-              </button>
             </div>
           </div>
         </div>
