@@ -16,11 +16,12 @@ A sophisticated, production-grade **Progressive Web App** that transforms docume
 ## Tech Stack
 
 - **React 19** + TypeScript + Vite
-- **Tailwind CSS** with custom academia theme
+- **Tailwind CSS** with custom dark academia theme
 - **pdfjs-dist** + react-pdf for document parsing
-- **Canvas API** for waveform visualization
-- **vite-plugin-pwa** for full PWA capabilities
+- **Canvas API** for real-time waveform visualization
+- **vite-plugin-pwa** for full PWA capabilities (installable app)
 - **Lucide React** icons
+- **GitHub Actions** for automatic deployment to GitHub Pages
 
 ## Quick Start
 
