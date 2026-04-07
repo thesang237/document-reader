@@ -204,6 +204,14 @@ const EchoArchive: React.FC = () => {
           ? chunkText.substring(0, 57) + '...' 
           : chunkText;
 
+        // Determine correct language code from voice ID
+        let languageCode = 'en-US';
+        if (selectedVoiceId.startsWith('vi-VN')) {
+          languageCode = 'vi-VN';
+        } else if (selectedVoiceId.startsWith('en-GB')) {
+          languageCode = 'en-GB';
+        }
+
         const response = await fetch(
           `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
           {
@@ -212,7 +220,7 @@ const EchoArchive: React.FC = () => {
             body: JSON.stringify({
               input: { text: chunkText },
               voice: { 
-                languageCode: selectedVoiceId.startsWith('en-GB') ? 'en-GB' : 'en-US',
+                languageCode: languageCode,
                 name: selectedVoiceId 
               },
               audioConfig: { 
