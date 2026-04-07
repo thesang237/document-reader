@@ -36,6 +36,8 @@ const EchoArchive: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [nowPlayingChunkId, setNowPlayingChunkId] = useState<number | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<'vi' | 'en'>('vi');
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -400,6 +402,8 @@ const EchoArchive: React.FC = () => {
     setCurrentAudio(null);
     setNowPlayingChunkId(null);
     setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
   };
 
   // Play a specific audio chunk (ensures only 1 audio plays at a time)
@@ -416,10 +420,20 @@ const EchoArchive: React.FC = () => {
     const audio = new Audio(chunk.audioUrl);
     audio.playbackRate = speed;
     
+    audio.ontimeupdate = () => {
+      setCurrentTime(audio.currentTime);
+      setDuration(audio.duration || 0);
+    };
+
+    audio.onloadedmetadata = () => {
+      setDuration(audio.duration || 0);
+    };
+
     audio.onended = () => {
       setNowPlayingChunkId(null);
       setIsPlaying(false);
       setCurrentAudio(null);
+      setCurrentTime(0);
     };
 
     audio.play().then(() => {
@@ -684,6 +698,30 @@ const EchoArchive: React.FC = () => {
               />
               <div className="absolute bottom-6 left-8 text-[10px] font-mono text-[#5c4634] tracking-widest">OSCILLOSCOPE • LIVE</div>
             </div>
+
+            {/* Progress Bar */}
+            {nowPlayingChunkId !== null && (
+              <div className="mb-6">
+                <div className="flex justify-between text-[10px] font-mono text-[#8c6f47] mb-1">
+                  <span>{Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}</span>
+                  <span>{Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max={duration || 0}
+                  value={currentTime}
+                  onChange={(e) => {
+                    const newTime = parseFloat(e.target.value);
+                    if (currentAudio) {
+                      currentAudio.currentTime = newTime;
+                      setCurrentTime(newTime);
+                    }
+                  }}
+                  className="w-full accent-[#d4af37] cursor-pointer"
+                />
+              </div>
+            )}
 
             {/* Controls */}
             <div className="flex items-center justify-between text-xs">
