@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, Play, Pause, Square, Settings, Key, Clock, BookOpen } from 'lucide-react';
+import { Upload, Play, Pause, Square, Settings, Key, BookOpen } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Types
@@ -22,15 +22,12 @@ const EchoArchive: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem('googleTtsApiKey') || '');
   const [showSettings, setShowSettings] = useState(false);
   const [documentText, setDocumentText] = useState<string>('');
-  const [documentTitle, setDocumentTitle] = useState<string>('');
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   const [selectedVoiceId, setSelectedVoiceId] = useState('vi-VN-Neural2-D');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
-  const [estTime, setEstTime] = useState('');
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [audioChunks, setAudioChunks] = useState<AudioChunk[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -136,23 +133,15 @@ const EchoArchive: React.FC = () => {
     return chunks;
   };
 
-  // Calculate stats
+  // Simple stats calculator (kept for future use)
   const calculateStats = useCallback((sents: Sentence[]) => {
-    const totalWords = sents.reduce((sum, s) => sum + s.wordCount, 0);
-    setWordCount(totalWords);
-    
-    // Estimate time: base 160 wpm, adjusted by speed
-    const wpm = 160 * speed;
-    const minutes = totalWords / wpm;
-    const mins = Math.floor(minutes);
-    const secs = Math.floor((minutes - mins) * 60);
-    setEstTime(`${mins}m ${secs}s`);
-  }, [speed]);
+    // Currently not displayed in UI, but available for future features
+    console.log(`[Stats] ${sents.reduce((sum, s) => sum + s.wordCount, 0)} words`);
+  }, []);
 
   // Process uploaded file
   const processFile = async (file: File) => {
     setIsProcessing(true);
-    setDocumentTitle(file.name.replace(/\.(pdf|txt)$/, ''));
     
     try {
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
@@ -492,52 +481,35 @@ const EchoArchive: React.FC = () => {
       <div className="flex h-[calc(100vh-73px)]">
         {/* Left Sidebar: Document Input */}
         <div className="w-96 border-r border-[#5c4634] bg-[#1a0f08]/80 flex flex-col academia-container m-3 mr-0 rounded-3xl overflow-hidden">
+          {/* Simple Instruction */}
           <div className="p-6 border-b border-[#5c4634]">
-            <div className="uppercase tracking-widest text-xs mb-2 text-[#8c6f47]">CURRENT ARCHIVE</div>
-            <h2 className="text-2xl gold-text font-bold leading-none">{documentTitle || 'Untitled Manuscript'}</h2>
-            {wordCount > 0 && (
-              <div className="flex gap-4 mt-4 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{estTime}</span>
-                </div>
-                <div>{wordCount.toLocaleString()} words</div>
-              </div>
-            )}
+            <div className="uppercase tracking-widest text-xs text-[#8c6f47]">ENTER MANUSCRIPT</div>
+            <p className="text-[#a38b6b] text-sm mt-2 leading-tight">Paste text, drop a file, or upload a document below.</p>
           </div>
 
-          {/* Text Input + Upload Area */}
-          <div className="flex-1 flex flex-col p-6 gap-4">
-            {/* Paste Text Field */}
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col p-6 gap-6">
+            {/* Text Field - Fills available space */}
             <div className="flex-1 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <div className="uppercase tracking-widest text-xs text-[#8c6f47]">MANUSCRIPT TEXT</div>
-                <button
-                  onClick={generateFullAudio}
-                  disabled={isGenerating || !documentText.trim() || !apiKey}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#d4af37] to-[#b38b4d] disabled:from-[#3a2720] disabled:to-[#2c2118] text-[#1a0f08] disabled:text-[#6b5542] font-medium rounded-2xl text-sm transition-all active:scale-[0.97]"
-                >
-                  {isGenerating ? 'GENERATING CHAPTERS...' : 'GENERATE AUDIO CHAPTERS'}
-                </button>
-              </div>
               <textarea
                 value={documentText}
                 onChange={(e) => setDocumentText(e.target.value)}
-                placeholder="Paste or type your manuscript here. Click 'GENERATE AUDIO CHAPTERS' to create separate MP3 files (respects Google TTS limits)."
-                className="flex-1 bg-[#120b06] border border-[#5c4634] focus:border-[#d4af37] rounded-2xl p-5 text-sm resize-none outline-none font-serif leading-relaxed placeholder:text-[#6b5542]"
+                placeholder="Paste or type your text here..."
+                className="flex-1 bg-[#120b06] border border-[#5c4634] focus:border-[#d4af37] rounded-2xl p-6 text-sm resize-none outline-none font-serif leading-relaxed placeholder:text-[#6b5542]"
               />
             </div>
 
-            {/* File Upload Area */}
+            {/* Fixed Size Drop Area */}
             <div
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className="border-2 border-dashed border-[#5c4634] hover:border-[#d4af37] transition-all rounded-2xl p-6 cursor-pointer group flex flex-col items-center justify-center h-32"
+              className="h-20 border-2 border-dashed border-[#5c4634] hover:border-[#d4af37] transition-all rounded-2xl flex items-center justify-center cursor-pointer group"
             >
-              <Upload className="w-9 h-9 text-[#8c6f47] group-hover:text-[#d4af37] mb-3 transition-colors" />
-              <p className="text-[#d4af37] text-sm font-medium">Drop PDF or TXT file</p>
-              <p className="text-[#8c6f47] text-xs text-center mt-1">or click to browse</p>
+              <div className="flex items-center gap-3 text-[#8c6f47] group-hover:text-[#d4af37]">
+                <Upload className="w-5 h-5" />
+                <span className="text-sm font-medium">Drop PDF or TXT</span>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -546,6 +518,17 @@ const EchoArchive: React.FC = () => {
                 className="hidden"
               />
             </div>
+          </div>
+
+          {/* Fixed Generate Button at Bottom */}
+          <div className="p-6 border-t border-[#5c4634]">
+            <button
+              onClick={generateFullAudio}
+              disabled={isGenerating || !documentText.trim() || !apiKey}
+              className="w-full h-14 flex items-center justify-center bg-gradient-to-r from-[#d4af37] to-[#b38b4d] disabled:from-[#3a2720] disabled:to-[#2c2118] text-[#1a0f08] disabled:text-[#6b5542] font-semibold rounded-2xl text-base transition-all active:scale-[0.97]"
+            >
+              {isGenerating ? 'GENERATING CHAPTERS...' : 'GENERATE AUDIO CHAPTERS'}
+            </button>
           </div>
 
           {/* Text Viewer with Highlights */}
