@@ -33,12 +33,22 @@ Open http://localhost:5173
 
 ## Deployment to GitHub Pages
 
+The project is configured for **automatic deployment**:
+
 ```bash
-npm run build
-# The dist/ folder is ready for deployment
+npm run deploy
 ```
 
-The app is configured for GitHub Pages with correct base path.
+This builds the app and pushes the `dist` folder to the `gh-pages` branch.
+
+### One-time GitHub Setup:
+1. Go to repository **Settings** → **Pages**
+2. Under "Build and deployment", select **Deploy from a branch**
+3. Choose **gh-pages** branch → **/(root)** → **Save**
+
+Your app will be live at: https://thesang237.github.io/google-read-text/
+
+Run `npm run deploy` anytime to update the live site.
 
 ## API Key Setup
 
