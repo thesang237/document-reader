@@ -93,11 +93,11 @@ const EchoArchive: React.FC = () => {
     }));
   };
 
-  // Intelligent chunking for Google TTS (max ~5000 chars per request)
-  const chunkTextForTTS = (text: string, maxChars: number = 4500): string[] => {
+  // Intelligent chunking for Google TTS (max ~5000 bytes per request)
+  const chunkTextForTTS = (text: string, maxBytes: number = 3200): string[] => {
     if (!text || text.trim().length === 0) return [];
 
-    // Improved sentence splitting that handles more edge cases
+    // Improved sentence splitting
     const sentenceRegex = /[^.!?]+[.!?]+["'”’)]?/g;
     const matches = text.match(sentenceRegex) || [text];
     const sentences = matches.map(s => s.trim()).filter(s => s.length > 0);
@@ -110,7 +110,10 @@ const EchoArchive: React.FC = () => {
         ? currentChunk + ' ' + sentence 
         : sentence;
 
-      if (potentialChunk.length > maxChars && currentChunk.length > 0) {
+      // Check byte length (Vietnamese characters can be 2-3 bytes)
+      const byteLength = new Blob([potentialChunk]).size;
+
+      if (byteLength > maxBytes && currentChunk.length > 0) {
         chunks.push(currentChunk.trim());
         currentChunk = sentence;
       } else {
@@ -122,9 +125,10 @@ const EchoArchive: React.FC = () => {
       chunks.push(currentChunk.trim());
     }
 
-    console.log(`[Chunking] Split ${text.length} chars into ${chunks.length} chunks (max ${maxChars})`);
+    console.log(`[Chunking] Split ${text.length} chars (${new Blob([text]).size} bytes) into ${chunks.length} chunks (max ${maxBytes} bytes)`);
     chunks.forEach((chunk, i) => {
-      console.log(`  Chunk ${i+1}: ${chunk.length} chars`);
+      const bytes = new Blob([chunk]).size;
+      console.log(`  Chunk ${i+1}: ${chunk.length} chars (${bytes} bytes)`);
     });
 
     return chunks;
@@ -195,7 +199,7 @@ const EchoArchive: React.FC = () => {
     setAudioChunks([]);
 
     try {
-      const chunks = chunkTextForTTS(documentText);
+      const chunks = chunkTextForTTS(documentText, 3200);
       const generatedChunks: AudioChunk[] = [];
 
       for (let i = 0; i < chunks.length; i++) {
