@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Crimson+Text:ital,wght@family=400;600&display=swap');
+
+:root {
+  --academia-bg: #1a0f08;
+  --academia-paper: #2c2118;
+  --academia-text: #d4c3a3;
+  --academia-accent: #d4af37;
+  --academia-gold: #d4af37;
+  --academia-burgundy: #4a2c2a;
+  --academia-border: #5c4634;
+}
+
+body {
+  margin: 0;
+  font-family: 'Crimson Text', Georgia, serif;
+  background-color: var(--academia-bg);
+  color: var(--academia-text);
+  overflow: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a0f08 0%, #120b06 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark Academia specific styles */
+.academia-container {
+  background-color: var(--academia-paper);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6),
+              inset 0 0 80px rgba(212, 175, 55, 0.08);
+  border: 1px solid var(--academia-border);
+}
+
+.gold-text {
+  color: var(--academia-gold);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.ornate-border {
+  position: relative;
+}
+
+.ornate-border::before,
+.ornate-border::after {
+  content: '';
+  position: absolute;
+  background: linear-gradient(to right, transparent, var(--academia-gold), transparent);
+  height: 1px;
+  width: 100%;
+}
+
+.ornate-border::before { top: 0; }
+.ornate-border::after { bottom: 0; }
+
+.waveform-canvas {
+  image-rendering: crisp-edges;
+  filter: contrast(1.1) brightness(1.05);
+}
+
+/* Scrollbar styling for academia feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a0f08;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #5c4634;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
+}
