@@ -301,6 +301,22 @@ const EchoArchive: React.FC = () => {
     }
   };
 
+  // Download all generated MP3 chapters
+  const downloadAllChapters = () => {
+    if (audioChunks.length === 0) return;
+
+    audioChunks.forEach((chunk, index) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = chunk.audioUrl;
+        link.download = `chapter-${(index + 1).toString().padStart(2, '0')}-${selectedVoiceId.toLowerCase().replace(/[^a-z0-9]/g, '-')}.mp3`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, index * 400); // Stagger downloads to prevent browser blocking
+    });
+  };
+
   // Canvas Waveform Animation
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current;
@@ -581,9 +597,20 @@ const EchoArchive: React.FC = () => {
             ) : audioChunks.length > 0 ? (
               /* Playlist View */
               <div className="flex-1 flex flex-col">
-                <div className="uppercase tracking-widest text-xs mb-6 text-[#8c6f47] flex items-center gap-3">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                  AUDIO CHAPTERS • {audioChunks.length} PARTS
+                <div className="flex justify-between items-center mb-6">
+                  <div className="uppercase tracking-widest text-xs text-[#8c6f47] flex items-center gap-3">
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                    AUDIO CHAPTERS • {audioChunks.length} PARTS
+                  </div>
+                  <button
+                    onClick={downloadAllChapters}
+                    className="flex items-center gap-2 px-5 py-2 text-xs border border-[#d4af37] hover:bg-[#2c2118] rounded-2xl text-[#d4af37] transition-all active:scale-95"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v-4m0 0l4 4m-4-4l4-4m12 0v4m0 0l-4-4m4 4l-4 4" />
+                    </svg>
+                    DOWNLOAD ALL
+                  </button>
                 </div>
                 
                 <div className="flex-1 overflow-auto space-y-3 pr-4 custom-scroll">
