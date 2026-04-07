@@ -313,8 +313,8 @@ const EchoArchive: React.FC = () => {
       {/* Ornate Header */}
       <header className="academia-container border-b border-[#5c4634] py-4 px-8 flex items-center justify-between relative z-20">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#d4af37] to-[#8c6f47] flex items-center justify-center shadow-inner">
-            <BookOpen className="w-6 h-6 text-[#1a0f08]" />
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#d4af37] to-[#8c6f47] flex items-center justify-center shadow-inner">
+            <BookOpen className="w-4 h-4 text-[#1a0f08]" />
           </div>
           <div>
             <h1 className="text-4xl font-bold tracking-tighter gold-text">ECHO ARCHIVE</h1>
@@ -340,11 +340,11 @@ const EchoArchive: React.FC = () => {
       </header>
 
       <div className="flex h-[calc(100vh-73px)]">
-        {/* Left Sidebar: Document & Text */}
+        {/* Left Sidebar: Document Input */}
         <div className="w-96 border-r border-[#5c4634] bg-[#1a0f08]/80 flex flex-col academia-container m-3 mr-0 rounded-3xl overflow-hidden">
           <div className="p-6 border-b border-[#5c4634]">
             <div className="uppercase tracking-widest text-xs mb-2 text-[#8c6f47]">CURRENT ARCHIVE</div>
-            <h2 className="text-2xl gold-text font-bold leading-none">{documentTitle || 'No Document Loaded'}</h2>
+            <h2 className="text-2xl gold-text font-bold leading-none">{documentTitle || 'Untitled Manuscript'}</h2>
             {wordCount > 0 && (
               <div className="flex gap-4 mt-4 text-xs">
                 <div className="flex items-center gap-1.5">
@@ -356,26 +356,55 @@ const EchoArchive: React.FC = () => {
             )}
           </div>
 
-          {/* Upload Area */}
-          {!documentText && (
-            <div 
+          {/* Text Input + Upload Area */}
+          <div className="flex-1 flex flex-col p-6 gap-4">
+            {/* Paste Text Field */}
+            <div className="flex-1 flex flex-col">
+              <div className="flex justify-between items-center mb-2">
+                <div className="uppercase tracking-widest text-xs text-[#8c6f47]">PASTE TEXT</div>
+                <button
+                  onClick={() => {
+                    const text = documentText || '';
+                    if (text) {
+                      setDocumentText(text);
+                      const newSentences = splitIntoSentences(text);
+                      setSentences(newSentences);
+                      calculateStats(newSentences);
+                      setDocumentTitle('Pasted Text');
+                    }
+                  }}
+                  className="text-xs px-4 py-1 bg-[#2c2118] hover:bg-[#3a2720] text-[#d4af37] rounded-xl transition-colors"
+                >
+                  PROCESS TEXT
+                </button>
+              </div>
+              <textarea
+                value={documentText}
+                onChange={(e) => setDocumentText(e.target.value)}
+                placeholder="Paste your text here... The archive will split it into sentences automatically."
+                className="flex-1 bg-[#120b06] border border-[#5c4634] focus:border-[#d4af37] rounded-2xl p-5 text-sm resize-none outline-none font-serif leading-relaxed placeholder:text-[#6b5542]"
+              />
+            </div>
+
+            {/* File Upload Area */}
+            <div
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className="flex-1 flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#5c4634] mx-6 my-6 rounded-2xl hover:border-[#d4af37] transition-all cursor-pointer group"
+              className="border-2 border-dashed border-[#5c4634] hover:border-[#d4af37] transition-all rounded-2xl p-6 cursor-pointer group flex flex-col items-center justify-center h-32"
             >
-              <Upload className="w-12 h-12 text-[#8c6f47] group-hover:text-[#d4af37] mb-6 transition-colors" />
-              <p className="text-[#d4af37] text-center text-lg mb-2">Drop PDF or TXT</p>
-              <p className="text-xs text-center max-w-[180px] text-[#8c6f47]">Or click to browse your archives. Supports Google Books style PDFs.</p>
-              <input 
+              <Upload className="w-9 h-9 text-[#8c6f47] group-hover:text-[#d4af37] mb-3 transition-colors" />
+              <p className="text-[#d4af37] text-sm font-medium">Drop PDF or TXT file</p>
+              <p className="text-[#8c6f47] text-xs text-center mt-1">or click to browse</p>
+              <input
                 ref={fileInputRef}
-                type="file" 
-                accept=".pdf,.txt" 
+                type="file"
+                accept=".pdf,.txt"
                 onChange={handleFileSelect}
-                className="hidden" 
+                className="hidden"
               />
             </div>
-          )}
+          </div>
 
           {/* Text Viewer with Highlights */}
           {documentText && (
