@@ -27,7 +27,7 @@ const EchoArchive: React.FC = () => {
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1.0);
-  const [selectedVoiceId, setSelectedVoiceId] = useState('en-US-Wavenet-D');
+  const [selectedVoiceId, setSelectedVoiceId] = useState('vi-VN-Neural2-D');
   const [isProcessing, setIsProcessing] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [estTime, setEstTime] = useState('');
@@ -710,7 +710,7 @@ const EchoArchive: React.FC = () => {
               <button
                 onClick={() => {
                   setSelectedLanguage('vi');
-                  setSelectedVoiceId('vi-VN-Neural2-D');
+                  setSelectedVoiceId('vi-VN-Neural2-D'); // Default to male Vietnamese
                 }}
                 className={`flex-1 py-2.5 text-sm rounded-[14px] transition-all ${
                   selectedLanguage === 'vi' 
@@ -723,7 +723,7 @@ const EchoArchive: React.FC = () => {
               <button
                 onClick={() => {
                   setSelectedLanguage('en');
-                  setSelectedVoiceId('en-US-Journey-D');
+                  setSelectedVoiceId('en-US-Journey-D'); // Default to male English
                 }}
                 className={`flex-1 py-2.5 text-sm rounded-[14px] transition-all ${
                   selectedLanguage === 'en' 
