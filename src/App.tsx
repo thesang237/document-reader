@@ -95,22 +95,37 @@ const EchoArchive: React.FC = () => {
 
   // Intelligent chunking for Google TTS (max ~5000 chars per request)
   const chunkTextForTTS = (text: string, maxChars: number = 4500): string[] => {
-    const sentences = splitIntoSentences(text).map(s => s.text);
+    if (!text || text.trim().length === 0) return [];
+
+    // Improved sentence splitting that handles more edge cases
+    const sentenceRegex = /[^.!?]+[.!?]+["'”’)]?/g;
+    const matches = text.match(sentenceRegex) || [text];
+    const sentences = matches.map(s => s.trim()).filter(s => s.length > 0);
+
     const chunks: string[] = [];
     let currentChunk = '';
 
     for (const sentence of sentences) {
-      if ((currentChunk + sentence).length > maxChars && currentChunk.length > 0) {
+      const potentialChunk = currentChunk 
+        ? currentChunk + ' ' + sentence 
+        : sentence;
+
+      if (potentialChunk.length > maxChars && currentChunk.length > 0) {
         chunks.push(currentChunk.trim());
         currentChunk = sentence;
       } else {
-        currentChunk += (currentChunk ? ' ' : '') + sentence;
+        currentChunk = potentialChunk;
       }
     }
 
-    if (currentChunk) {
+    if (currentChunk.trim()) {
       chunks.push(currentChunk.trim());
     }
+
+    console.log(`[Chunking] Split ${text.length} chars into ${chunks.length} chunks (max ${maxChars})`);
+    chunks.forEach((chunk, i) => {
+      console.log(`  Chunk ${i+1}: ${chunk.length} chars`);
+    });
 
     return chunks;
   };
