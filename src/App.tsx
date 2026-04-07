@@ -285,14 +285,12 @@ const EchoArchive: React.FC = () => {
     }
   };
 
-  // Play full playlist sequentially
+  // Play full playlist sequentially (only 1 audio at a time)
   const togglePlayback = async () => {
     if (audioChunks.length === 0) return;
 
     if (isPlaying) {
-      if (currentAudio) currentAudio.pause();
-      setIsPlaying(false);
-      setNowPlayingChunkId(null);
+      stopAllAudio();
       return;
     }
 
@@ -314,9 +312,7 @@ const EchoArchive: React.FC = () => {
       });
     }
     
-    setIsPlaying(false);
-    setNowPlayingChunkId(null);
-    setCurrentAudio(null);
+    stopAllAudio();
   };
 
   // Canvas Waveform Animation
@@ -394,15 +390,28 @@ const EchoArchive: React.FC = () => {
     setShowSettings(false);
   };
 
-  // Play a specific audio chunk
+  // Stop any currently playing audio
+  const stopAllAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+    window.speechSynthesis?.cancel();
+    setCurrentAudio(null);
+    setNowPlayingChunkId(null);
+    setIsPlaying(false);
+  };
+
+  // Play a specific audio chunk (ensures only 1 audio plays at a time)
   const playChunk = (chunk: AudioChunk) => {
+    // If clicking the currently playing chunk, pause it
     if (nowPlayingChunkId === chunk.id) {
-      // Pause
-      if (currentAudio) currentAudio.pause();
-      setNowPlayingChunkId(null);
-      setIsPlaying(false);
+      stopAllAudio();
       return;
     }
+
+    // Stop any other audio first
+    stopAllAudio();
 
     const audio = new Audio(chunk.audioUrl);
     audio.playbackRate = speed;
@@ -417,7 +426,10 @@ const EchoArchive: React.FC = () => {
       setNowPlayingChunkId(chunk.id);
       setIsPlaying(true);
       setCurrentAudio(audio);
-    }).catch(console.error);
+    }).catch((err) => {
+      console.error('Audio play error:', err);
+      stopAllAudio();
+    });
   };
 
   return (
