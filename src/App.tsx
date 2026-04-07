@@ -545,7 +545,17 @@ const EchoArchive: React.FC = () => {
         {/* Main Reader Area - Text or Playlist */}
         <div className="flex-1 flex flex-col p-8 relative">
           <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-hidden">
-            {audioChunks.length > 0 ? (
+            {isGenerating ? (
+              /* Loading State During Generation */
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 mx-auto mb-8">
+                  <div className="animate-spin w-16 h-16 border-4 border-[#5c4634] border-t-[#d4af37] rounded-full"></div>
+                </div>
+                <h3 className="text-3xl gold-text mb-4">Creating Audio Chapters</h3>
+                <p className="text-[#a38b6b] max-w-xs">Splitting manuscript and synthesizing voice. This may take a moment for long documents.</p>
+                <div className="mt-12 text-xs text-[#5c4634] font-mono">CHECK CONSOLE FOR PROGRESS</div>
+              </div>
+            ) : audioChunks.length > 0 ? (
               /* Playlist View */
               <div className="flex-1 flex flex-col">
                 <div className="uppercase tracking-widest text-xs mb-6 text-[#8c6f47] flex items-center gap-3">
