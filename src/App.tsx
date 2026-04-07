@@ -276,8 +276,8 @@ const EchoArchive: React.FC = () => {
     }
   };
 
-  // Play full playlist sequentially (only 1 audio at a time)
-  const togglePlayback = async () => {
+  // Play/pause handler - works for both individual chunks and full playlist
+  const togglePlayback = () => {
     if (audioChunks.length === 0) return;
 
     if (isPlaying) {
@@ -285,25 +285,8 @@ const EchoArchive: React.FC = () => {
       return;
     }
 
-    setIsPlaying(true);
-    
-    for (let i = 0; i < audioChunks.length; i++) {
-      if (!isPlaying) break;
-      
-      const chunk = audioChunks[i];
-      setNowPlayingChunkId(chunk.id);
-      
-      const audio = new Audio(chunk.audioUrl);
-      audio.playbackRate = speed;
-      
-      await new Promise<void>((resolve) => {
-        audio.onended = () => resolve();
-        audio.play().catch(() => resolve());
-        setCurrentAudio(audio);
-      });
-    }
-    
-    stopAllAudio();
+    // Start from first chunk (auto-advance will handle the rest)
+    playChunk(audioChunks[0]);
   };
 
   // Canvas Waveform Animation
@@ -672,7 +655,7 @@ const EchoArchive: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={togglePlayback}
-                  disabled={sentences.length === 0}
+                  disabled={audioChunks.length === 0}
                   className="w-14 h-14 flex items-center justify-center bg-gradient-to-b from-[#d4af37] to-[#b38b4d] hover:brightness-110 active:scale-95 text-[#1a0f08] rounded-2xl transition-all shadow-lg disabled:opacity-40"
                 >
                   {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-0.5" />}
