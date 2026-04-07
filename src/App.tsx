@@ -475,44 +475,6 @@ const EchoArchive: React.FC = () => {
                 className="hidden"
               />
             </div>
-
-            {/* Voice Library - Redesigned */}
-            <div className="mt-2 pt-6 border-t border-[#3a2720]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="uppercase tracking-widest text-xs text-[#8c6f47]">VOICE LIBRARY</div>
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => {
-                    const lang = e.target.value as 'vi' | 'en';
-                    setSelectedLanguage(lang);
-                    // Auto select first voice of new language
-                    setSelectedVoiceId(voiceLibrary[lang][0].id);
-                  }}
-                  className="bg-[#1a0f08] border border-[#5c4634] text-xs px-3 py-1.5 rounded-xl text-[#d4af37] outline-none"
-                >
-                  <option value="vi">🇻🇳 Vietnamese (default)</option>
-                  <option value="en">🇺🇸 English</option>
-                </select>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                {currentVoices.map((voice) => (
-                  <div
-                    key={voice.id}
-                    onClick={() => setSelectedVoiceId(voice.id)}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all hover:-translate-y-0.5 ${
-                      selectedVoiceId === voice.id 
-                        ? 'border-[#d4af37] bg-[#2c2118] shadow-[0_0_20px_-4px] shadow-[#d4af37]/40' 
-                        : 'border-[#3a2720] hover:border-[#6b5542]'
-                    }`}
-                  >
-                    <div className="text-3xl mb-3 opacity-80">{voice.icon}</div>
-                    <div className="font-medium text-white text-sm">{voice.name}</div>
-                    <div className="text-[10px] text-[#a38b6b] mt-0.5">{voice.description}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Text Viewer with Highlights */}
