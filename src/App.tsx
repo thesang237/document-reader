@@ -430,10 +430,22 @@ const EchoArchive: React.FC = () => {
     };
 
     audio.onended = () => {
-      setNowPlayingChunkId(null);
-      setIsPlaying(false);
-      setCurrentAudio(null);
-      setCurrentTime(0);
+      const currentIndex = audioChunks.findIndex(c => c.id === chunk.id);
+      const isLastChunk = currentIndex === audioChunks.length - 1;
+      
+      if (!isLastChunk && isPlaying) {
+        // Auto-advance to next chunk
+        const nextChunk = audioChunks[currentIndex + 1];
+        setTimeout(() => {
+          playChunk(nextChunk);
+        }, 300); // Small pause between chapters
+      } else {
+        // Last chunk or manually stopped
+        setNowPlayingChunkId(null);
+        setIsPlaying(false);
+        setCurrentAudio(null);
+        setCurrentTime(0);
+      }
     };
 
     audio.play().then(() => {
