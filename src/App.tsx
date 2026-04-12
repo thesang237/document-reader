@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, Play, Pause, Square, Settings, Key, BookOpen } from 'lucide-react';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // PDF.js will be dynamically imported when needed
 
 // Types
@@ -39,6 +40,21 @@ const EchoArchive: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isPlayingRef = useRef<boolean>(false);
+
+  // Setup PDF.js worker from local bundle (security: avoids outdated CDN dependency)
+  useEffect(() => {
+    const setupWorker = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        console.log('✅ PDF.js worker configured with local v5 bundle');
+      } catch (err) {
+        console.error('Failed to setup PDF worker:', err);
+      }
+    };
+    setupWorker();
+  }, []);
 
   const voiceLibrary = {
     vi: [
@@ -145,9 +161,8 @@ const EchoArchive: React.FC = () => {
     
     try {
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        // Dynamically import PDF.js only when needed (fixes large chunk warning)
+        // PDF.js already configured with local worker in useEffect (secure, up-to-date v5)
         const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js`;
         
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -301,6 +316,39 @@ const EchoArchive: React.FC = () => {
     }
   };
 
+  // Load demo playlist for testing (works without any API key)
+  const loadDemoPlaylist = () => {
+    const testUrls = [
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+    ];
+
+    const previews = [
+      "The old library smelled of dust and forgotten wisdom...",
+      "Shadows moved across the ancient oak shelves at midnight...",
+      "A single leather-bound book began turning its own pages...",
+      "Whispers echoed from the forbidden section of the archive...",
+      "The candle flickered as the final prophecy was revealed...",
+      "Time itself seemed to bend within the walls of the Echo Archive...",
+    ];
+
+    const demoChunks: AudioChunk[] = testUrls.map((url, i) => ({
+      id: i,
+      text: previews[i] + " This is demo content used only for testing the fixed playlist scrolling and autoplay next track.",
+      preview: previews[i],
+      audioUrl: url,
+    }));
+
+    setAudioChunks(demoChunks);
+    setDocumentText("DEMO MODE — Using free public test tracks from SoundHelix (no API key needed)");
+    setSentences(splitIntoSentences("Demo mode activated. Test that the playlist scrolls properly and that tracks autoplay one after another."));
+    setCurrentSentenceIndex(-1);
+  };
+
   // Download all generated MP3 chapters
   const downloadAllChapters = () => {
     if (audioChunks.length === 0) return;
@@ -379,6 +427,11 @@ const EchoArchive: React.FC = () => {
     }
   }, [speed, currentAudio, isPlaying]);
 
+  // Sync isPlaying to ref for use in audio event callbacks (prevents stale closure)
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
   // Handle file drop
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -440,7 +493,7 @@ const EchoArchive: React.FC = () => {
       const currentIndex = audioChunks.findIndex(c => c.id === chunk.id);
       const isLastChunk = currentIndex === audioChunks.length - 1;
       
-      if (!isLastChunk && isPlaying) {
+      if (!isLastChunk && isPlayingRef.current) {
         // Auto-advance to next chunk
         const nextChunk = audioChunks[currentIndex + 1];
         setTimeout(() => {
@@ -506,9 +559,9 @@ const EchoArchive: React.FC = () => {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col p-6 gap-6">
+          <div className="flex-1 flex flex-col p-6 gap-6 min-h-0">
             {/* Text Field - Fills available space */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
               <textarea
                 value={documentText}
                 onChange={(e) => setDocumentText(e.target.value)}
@@ -539,19 +592,25 @@ const EchoArchive: React.FC = () => {
           </div>
 
           {/* Fixed Generate Button at Bottom */}
-          <div className="p-6 border-t border-[#5c4634]">
+          <div className="p-6 border-t border-[#5c4634] flex gap-3">
             <button
               onClick={generateFullAudio}
               disabled={isGenerating || !documentText.trim() || !apiKey}
-              className="w-full h-14 flex items-center justify-center bg-gradient-to-r from-[#d4af37] to-[#b38b4d] disabled:from-[#3a2720] disabled:to-[#2c2118] text-[#1a0f08] disabled:text-[#6b5542] font-semibold rounded-2xl text-base transition-all active:scale-[0.97]"
+              className="flex-1 h-14 flex items-center justify-center bg-gradient-to-r from-[#d4af37] to-[#b38b4d] disabled:from-[#3a2720] disabled:to-[#2c2118] text-[#1a0f08] disabled:text-[#6b5542] font-semibold rounded-2xl text-base transition-all active:scale-[0.97]"
             >
               {isGenerating ? 'GENERATING CHAPTERS...' : 'GENERATE AUDIO CHAPTERS'}
+            </button>
+            <button
+              onClick={loadDemoPlaylist}
+              className="px-8 h-14 border border-[#d4af37] hover:bg-[#2c2118] text-[#d4af37] font-medium rounded-2xl transition-all active:scale-95 whitespace-nowrap"
+            >
+              DEMO
             </button>
           </div>
 
           {/* Text Viewer with Highlights */}
           {documentText && (
-            <div className="flex-1 p-6 overflow-auto text-sm leading-relaxed custom-scroll">
+            <div className="flex-1 p-6 overflow-auto text-sm leading-relaxed custom-scroll min-h-0">
               {sentences.map((sentence, idx) => (
                 <span
                   key={sentence.id}
@@ -582,11 +641,11 @@ const EchoArchive: React.FC = () => {
         </div>
 
         {/* Main Reader Area - Text or Playlist */}
-        <div className="flex-1 flex flex-col p-3 relative">
-          <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-hidden">
+        <div className="flex-1 flex flex-col p-3 relative min-h-0">
+          <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-hidden min-h-0">
             {isGenerating ? (
               /* Loading State During Generation */
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <div className="flex-1 flex flex-col items-center justify-center text-center min-h-0">
                 <div className="w-16 h-16 mx-auto mb-8">
                   <div className="animate-spin w-16 h-16 border-4 border-[#5c4634] border-t-[#d4af37] rounded-full"></div>
                 </div>
@@ -596,7 +655,7 @@ const EchoArchive: React.FC = () => {
               </div>
             ) : audioChunks.length > 0 ? (
               /* Playlist View */
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex justify-between items-center mb-6">
                   <div className="uppercase tracking-widest text-xs text-[#8c6f47] flex items-center gap-3">
                     <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
@@ -613,7 +672,7 @@ const EchoArchive: React.FC = () => {
                   </button>
                 </div>
                 
-                <div className="flex-1 overflow-auto space-y-3 pr-4 custom-scroll">
+                <div className="flex-1 overflow-auto space-y-3 pr-4 custom-scroll min-h-0">
                   {audioChunks.map((chunk, index) => (
                     <div
                       key={chunk.id}
@@ -653,7 +712,7 @@ const EchoArchive: React.FC = () => {
                 </div>
               </div>
             ) : !documentText ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
+              <div className="flex-1 flex flex-col items-center justify-center text-center min-h-0">
                 <div className="w-24 h-24 mx-auto mb-8 opacity-40">
                   <BookOpen className="w-full h-full text-[#d4af37]" />
                 </div>
@@ -661,10 +720,16 @@ const EchoArchive: React.FC = () => {
                 <p className="max-w-md text-[#a38b6b] text-lg leading-relaxed">
                   Paste text or upload a document on the left. Then click "GENERATE AUDIO CHAPTERS" to create separate MP3 files.
                 </p>
+                <button
+                  onClick={loadDemoPlaylist}
+                  className="mt-8 px-10 py-4 border-2 border-[#d4af37] hover:bg-[#2c2118] text-[#d4af37] font-medium rounded-3xl text-sm tracking-[1px] transition-all active:scale-95"
+                >
+                  LOAD DEMO PLAYLIST (NO API KEY NEEDED)
+                </button>
                 <div className="mt-12 text-[10px] tracking-[2px] text-[#5c4634]">EST. 1892 • OXFORD READING SOCIETY</div>
               </div>
             ) : (
-              <div className="flex-1 overflow-auto pr-4 custom-scroll text-[15.2px] leading-[1.85] text-[#d4c3a3]">
+              <div className="flex-1 overflow-auto pr-4 custom-scroll min-h-0 text-[15.2px] leading-[1.85] text-[#d4c3a3]">
                 {sentences.map((sentence, idx) => (
                   <span
                     key={idx}

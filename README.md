@@ -50,9 +50,34 @@ You can also trigger deployment manually from the **Actions** tab.
 ## API Key Setup
 
 1. Get a Google Cloud Text-to-Speech API key from [Google Cloud Console](https://console.cloud.google.com/)
-2. Click **"MANAGE API KEY"** in the app
-3. Paste your key (saved securely in browser's localStorage)
-4. The input becomes a **"Change API Key"** button after first use
+2. **Important**: Create the key with **strict restrictions**:
+   - Set "Application restrictions" to HTTP referrers
+   - Add your GitHub Pages domain (`*.github.io`)
+   - Only enable the **Text-to-Speech API**
+3. Click **"MANAGE API KEY"** in the app
+4. Paste your key (stored in browser localStorage — see Security section)
+5. The input becomes a **"Change API Key"** button after first use
+
+## Security Considerations
+
+**⚠️ API Key Exposure (Primary Risk)**
+- The Google TTS API key is stored in `localStorage` and sent client-side in every request URL.
+- It is visible in browser DevTools (Network tab, Application Storage).
+- **Mitigation**: Always use referrer-restricted keys. Never use a key with broad permissions or billing enabled without monitoring.
+- For production use, consider a backend proxy (e.g. Cloudflare Worker) to hide your key.
+
+**Build Dependencies**
+- High severity vulnerability in `serialize-javascript` (transitive via `vite-plugin-pwa`).
+- Affects build process only (RCE risk if build inputs are malicious). Can be mitigated with npm overrides.
+- Run `npm audit` to monitor.
+
+**PDF Processing**
+- Now uses secure local `pdfjs-dist` v5 worker (previously used outdated CDN version — fixed in this update).
+
+**General**
+- This is a client-side PWA. All processing happens in-browser.
+- No server-side secrets are committed to the repo.
+- Review `src/App.tsx` (monolithic component) for changes.
 
 ## Project Structure
 
