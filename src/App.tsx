@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, Play, Pause, Square, Settings, Key, BookOpen } from 'lucide-react';
+import { Upload, Play, Pause, Square, Settings, Key, BookOpen, ChevronDown, Download } from 'lucide-react';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // PDF.js will be dynamically imported when needed
 
@@ -20,6 +20,9 @@ interface AudioChunk {
 
 
 const EchoArchive: React.FC = () => {
+  // Hide demo buttons for production (set true during development)
+  const SHOW_DEMO = true;
+
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem('googleTtsApiKey') || '');
   const [showSettings, setShowSettings] = useState(false);
   const [documentText, setDocumentText] = useState<string>('');
@@ -36,11 +39,13 @@ const EchoArchive: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<'vi' | 'en'>('vi');
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isPlayingRef = useRef<boolean>(false);
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
 
   // Setup PDF.js worker from local bundle (security: avoids outdated CDN dependency)
   useEffect(() => {
@@ -316,7 +321,7 @@ const EchoArchive: React.FC = () => {
     }
   };
 
-  // Load demo playlist for testing (works without any API key)
+  // Load demo playlist (hidden in production via SHOW_DEMO flag)
   const loadDemoPlaylist = () => {
     const testUrls = [
       'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
@@ -349,7 +354,7 @@ const EchoArchive: React.FC = () => {
     setCurrentSentenceIndex(-1);
   };
 
-  // Download all generated MP3 chapters
+  // Download all generated MP3 chapters (separate files)
   const downloadAllChapters = () => {
     if (audioChunks.length === 0) return;
 
@@ -363,6 +368,131 @@ const EchoArchive: React.FC = () => {
         document.body.removeChild(link);
       }, index * 400); // Stagger downloads to prevent browser blocking
     });
+    setShowDownloadMenu(false);
+  };
+
+  // Helper: base64 data URL → ArrayBuffer
+  const dataUrlToArrayBuffer = async (dataUrl: string): Promise<ArrayBuffer> => {
+    const response = await fetch(dataUrl);
+    return response.arrayBuffer();
+  };
+
+  // Simple WAV encoder (browser-native, no extra deps)
+  const encodeWAV = (audioBuffer: AudioBuffer): Blob => {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const length = audioBuffer.length * numChannels * 2 + 44;
+    const buffer = new ArrayBuffer(length);
+    const view = new DataView(buffer);
+    let pos = 0;
+
+    const writeString = (str: string, offset: number) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(pos + offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString('RIFF', 0);
+    view.setUint32(4, 36 + audioBuffer.length * numChannels * 2, true);
+    writeString('WAVE', 8);
+    writeString('fmt ', 12);
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * 2, true);
+    view.setUint16(32, numChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString('data', 36);
+    view.setUint32(40, audioBuffer.length * numChannels * 2, true);
+    pos = 44;
+
+    const channels: Float32Array[] = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(audioBuffer.getChannelData(i));
+    }
+
+    let offset = 0;
+    while (pos < length - 1) {
+      for (let i = 0; i < numChannels; i++) {
+        const sample = Math.max(-1, Math.min(1, channels[i][offset] || 0));
+        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        pos += 2;
+      }
+      offset++;
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
+
+  // Combine all audio chunks into one WAV file and download
+  const downloadCombinedAudio = async () => {
+    if (audioChunks.length === 0) {
+      setShowDownloadMenu(false);
+      return;
+    }
+
+    // Demo mode uses external MP3s that have CORS restrictions preventing decodeAudioData
+    if (documentText.includes('DEMO MODE')) {
+      alert('Combined download is not supported in DEMO mode.\n\nThe test tracks from SoundHelix have CORS restrictions that prevent browser decoding.\n\nUse "Download All Chapters" to get the individual MP3 files instead.');
+      setShowDownloadMenu(false);
+      return;
+    }
+
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    try {
+      const audioBuffers: AudioBuffer[] = [];
+
+      // Decode all MP3 chunks
+      for (const chunk of audioChunks) {
+        const arrayBuffer = await dataUrlToArrayBuffer(chunk.audioUrl);
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        audioBuffers.push(audioBuffer);
+      }
+
+      if (audioBuffers.length === 0) throw new Error('No audio buffers');
+
+      // Calculate total length
+      const totalLength = audioBuffers.reduce((sum, buf) => sum + buf.length, 0);
+      const combinedBuffer = audioContext.createBuffer(
+        audioBuffers[0].numberOfChannels,
+        totalLength,
+        audioBuffers[0].sampleRate
+      );
+
+      // Concatenate buffers
+      let currentOffset = 0;
+      for (const buffer of audioBuffers) {
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+          const sourceData = buffer.getChannelData(channel);
+          const targetData = combinedBuffer.getChannelData(channel);
+          targetData.set(sourceData, currentOffset);
+        }
+        currentOffset += buffer.length;
+      }
+
+      const wavBlob = encodeWAV(combinedBuffer);
+      const url = URL.createObjectURL(wavBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `complete-narration-${selectedVoiceId.toLowerCase().replace(/[^a-z0-9]/g, '-')}.wav`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      if (audioContext.state !== 'closed') {
+        audioContext.close();
+      }
+    } catch (error) {
+      console.error('Combined audio error:', error);
+      alert('Could not combine audio files.\n\n' +
+            'This feature requires browser support for AudioContext and MP3 decoding.\n' +
+            'Try downloading chapters individually instead.');
+    } finally {
+      setShowDownloadMenu(false);
+    }
   };
 
   // Canvas Waveform Animation
@@ -431,6 +561,19 @@ const EchoArchive: React.FC = () => {
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+
+  // Close download menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target as Node)) {
+        setShowDownloadMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
 
   // Handle file drop
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -600,12 +743,14 @@ const EchoArchive: React.FC = () => {
             >
               {isGenerating ? 'GENERATING CHAPTERS...' : 'GENERATE AUDIO CHAPTERS'}
             </button>
-            <button
-              onClick={loadDemoPlaylist}
-              className="px-8 h-14 border border-[#d4af37] hover:bg-[#2c2118] text-[#d4af37] font-medium rounded-2xl transition-all active:scale-95 whitespace-nowrap"
-            >
-              DEMO
-            </button>
+            {SHOW_DEMO && (
+              <button
+                onClick={loadDemoPlaylist}
+                className="px-8 h-14 border border-[#d4af37] hover:bg-[#2c2118] text-[#d4af37] font-medium rounded-2xl transition-all active:scale-95 whitespace-nowrap"
+              >
+                DEMO
+              </button>
+            )}
           </div>
 
           {/* Text Viewer with Highlights */}
@@ -642,7 +787,7 @@ const EchoArchive: React.FC = () => {
 
         {/* Main Reader Area - Text or Playlist */}
         <div className="flex-1 flex flex-col p-3 relative min-h-0">
-          <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-hidden min-h-0">
+          <div className="academia-container flex-1 rounded-3xl p-10 flex flex-col ornate-border overflow-visible min-h-0">
             {isGenerating ? (
               /* Loading State During Generation */
               <div className="flex-1 flex flex-col items-center justify-center text-center min-h-0">
@@ -655,21 +800,55 @@ const EchoArchive: React.FC = () => {
               </div>
             ) : audioChunks.length > 0 ? (
               /* Playlist View */
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="uppercase tracking-widest text-xs text-[#8c6f47] flex items-center gap-3">
+              <div className="flex-1 flex flex-col min-h-0 overflow-visible">
+                <div className="flex justify-between items-start mb-6 flex-shrink-0 h-14 overflow-visible">
+                  <div className="w-full  uppercase tracking-widest text-xs text-[#8c6f47] flex items-center gap-3">
                     <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
                     AUDIO CHAPTERS • {audioChunks.length} PARTS
                   </div>
-                  <button
-                    onClick={downloadAllChapters}
-                    className="flex items-center gap-2 px-5 py-2 text-xs border border-[#d4af37] hover:bg-[#2c2118] rounded-2xl text-[#d4af37] transition-all active:scale-95"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v-4m0 0l4 4m-4-4l4-4m12 0v4m0 0l-4-4m4 4l-4 4" />
-                    </svg>
-                    DOWNLOAD ALL
-                  </button>
+
+                  <div className="relative flex-col flex items-end w-40" ref={downloadMenuRef}>
+                    <button
+                      onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                      className="flex items-center gap-2 px-5 py-2 text-xs border border-[#d4af37] hover:bg-[#2c2118] rounded-2xl text-[#d4af37] transition-all active:scale-95"
+                    >
+                      <Download className="w-4 h-4" />
+                      DOWNLOAD
+                      <ChevronDown className={`w-3 h-3 transition-transform ${showDownloadMenu ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showDownloadMenu && (
+                      <div className="absolute right-0 top-0 mt-1 w-60 bg-[#1a0f08] border border-[#d4af37] rounded-2xl shadow-[0_0_40px_-10px] shadow-[#d4af37]/70 py-2 z-50 ornate-border dropdown-menu">
+                        <button
+                          onClick={downloadAllChapters}
+                          className="w-full px-5 py-3 text-left hover:bg-[#2c2118] flex items-center gap-3 text-[#d4c3a3] transition-colors text-sm group"
+                        >
+                          <div className="w-8 h-8 rounded-xl bg-[#2c2118] flex items-center justify-center text-[#d4af37] group-hover:scale-110 transition-transform">
+                            📑
+                          </div>
+                          <div>
+                            <div className="font-medium">Download All Chapters</div>
+                            <div className="text-[#8c6f47] text-xs">Separate MP3 files (one per chapter)</div>
+                          </div>
+                        </button>
+
+                        <div className="border-t border-[#3a2720] my-1"></div>
+
+                        <button
+                          onClick={downloadCombinedAudio}
+                          className="w-full px-5 py-3 text-left hover:bg-[#2c2118] flex items-center gap-3 text-[#d4c3a3] transition-colors text-sm group"
+                        >
+                          <div className="w-8 h-8 rounded-xl bg-[#2c2118] flex items-center justify-center text-[#d4af37] group-hover:scale-110 transition-transform">
+                            📀
+                          </div>
+                          <div>
+                            <div className="font-medium">Download Combined Audio</div>
+                            <div className="text-[#8c6f47] text-xs">Single WAV file (all chapters merged)</div>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex-1 overflow-auto space-y-3 pr-4 custom-scroll min-h-0">
@@ -720,12 +899,14 @@ const EchoArchive: React.FC = () => {
                 <p className="max-w-md text-[#a38b6b] text-lg leading-relaxed">
                   Paste text or upload a document on the left. Then click "GENERATE AUDIO CHAPTERS" to create separate MP3 files.
                 </p>
-                <button
-                  onClick={loadDemoPlaylist}
-                  className="mt-8 px-10 py-4 border-2 border-[#d4af37] hover:bg-[#2c2118] text-[#d4af37] font-medium rounded-3xl text-sm tracking-[1px] transition-all active:scale-95"
-                >
-                  LOAD DEMO PLAYLIST (NO API KEY NEEDED)
-                </button>
+                {SHOW_DEMO && (
+                  <button
+                    onClick={loadDemoPlaylist}
+                    className="mt-8 px-10 py-4 border-2 border-[#d4af37] hover:bg-[#2c2118] text-[#d4af37] font-medium rounded-3xl text-sm tracking-[1px] transition-all active:scale-95"
+                  >
+                    LOAD DEMO PLAYLIST (NO API KEY NEEDED)
+                  </button>
+                )}
                 <div className="mt-12 text-[10px] tracking-[2px] text-[#5c4634]">EST. 1892 • OXFORD READING SOCIETY</div>
               </div>
             ) : (
